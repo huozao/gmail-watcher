@@ -1,58 +1,35 @@
 # gmail-watcher
 
-Gmail 监听与流水线触发器，跑在 Google Cloud Run。是「美的存量对帐」链路的
-**上游触发端**，下游是 [`meidi-auto`](../meidi-auto/) 的 GitHub Actions 流水线。
-**每天在生产运行。**
+Gmail 监听与下游 GitHub Actions 触发器，使用 Flask、Pub/Sub 与 Firestore。
+本文件适用于独立 clone；父工作区存在时再按任务读取其规则，缺少父工作区不阻断本地工作。
 
-先读 `README.md`——链路图、关键常量、生产部署实测参数（服务名/区域/Pub-Sub/
-Scheduler）、排障表、只读取证命令都在里面。
+## 入口与路由
 
-## 动手前必须知道的
+- [README.md](README.md)：链路、配置、排障与带日期的部署取证。历史 revision、触发器与账户配置需现场复核。
+- `main.py`：Pub/Sub 入口、historyId 去重、关键词匹配、Gmail 标签、workflow dispatch 和 watch 续期。
+- `generate_gmail_token.py`：人工 OAuth 凭据生成；`Dockerfile`：运行镜像。
+- [RUN_LOCAL_DOCKER.md](RUN_LOCAL_DOCKER.md)：有账户副作用的本地启动说明，不能当作默认测试。
 
-- **`push main` 会自动构建并部署到生产**。Cloud Build 触发器
-  `gmail-watcher-deploy-main`（region `global`）监听 main，镜像 tag 就是
-  commit sha。判断线上跑的是哪份代码：把 Cloud Run revision 的镜像 tag 和
-  `git log` 对一下。**这里没有「先合并再择时部署」这一步**，合了就上线。
+## 业务与授权边界
 
-- **`GITHUB_REPO` 在 `main.py:43` 是硬编码**。仓库改名或转移后不同步改并
-  重新部署，dispatch 直接失效。
+- 已记录的 Cloud Build 部署方式是 push/merge 到 main 后自动上线；本地修改授权不包括 commit、push、merge、创建 PR、改远程资源或部署。
+- `POST /` 可修改 Gmail 标签、Firestore 状态并触发真实下游流水线；`GET /refresh_watch` 会续期 watch，可能发通知。HTTP 方法和本地运行不代表只读；真实调用、OAuth、账户变更与发信须在用户授权范围内。
+- `GITHUB_REPO`、`GITHUB_WORKFLOW` 是源码常量，仓库转移时应同时核对目标、PAT 与 Cloud Build 绑定。公开仓 GET 200 不证明 workflow dispatch 权限；不要用无关私有仓作为本仓默认验证要求。
+- Gmail watch 会过期；续期成功与下游业务完成分别验证。入口 HTTP 200、dispatch 接受或 Actions 绿灯均不能证明邮件链路完成。
+- 不提交 `.env`、OAuth token、凭据、邮件正文、Firestore 导出、日志或账户数据；不打印秘密。工作区部署的凭据按其 SOPS 规则，独立 clone 不依赖私有仓。
+- 保持 `.gitignore` 为 UTF-8；若改忽略规则，用 `git check-ignore -v` 验证敏感文件被忽略、源码未被误忽略。
 
-- **`GITHUB_TOKEN` 是细粒度 PAT，绑定 resource owner**。2026-09-08 转移当天
-  实测：owner 为 `nihil7` 的旧 token，在仓库归 `huozao` 后对
-  `huozao/meidi-auto` 及其 `actions/workflows` **双双 403**。
-  ⚠️ 验这类 token **必须拿私有仓做判据**——`huozao/meidi-auto` 是公开仓，
-  任何有效 token 读它都返回 200，看着有权限其实什么也没证明。用
-  `GET /repos/huozao/infra`（私有）才算数。
+## 最小验证与维护
 
-- **Gmail watch 最长 7 天到期**，靠 Cloud Scheduler `refresh-gmail-watch`
-  （asia-east2，`0 18 * * *` UTC）每天调 `/refresh_watch` 续期。过期后邮件
-  不再推送，链路**静默失效、不报错**。
-
-- **服务不对 `allUsers` 开放**，手工调用要带身份令牌：
-  `curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" <URL>/refresh_watch`
-
-- **凭据正本在 `infra/secrets/gmail-watcher.enc.env` 与
-  `gmail-watcher-token.enc.json`**（SOPS）。改那里不等于改生产——环境变量要
-  `gcloud run services update --update-env-vars` 推上去，token 要
-  `gcloud secrets versions add gmail_token_json` 推上去。
-
-- **`.gitignore` 必须保持 UTF-8**。它曾经是 UTF-16LE，git 完全不解析，
-  `token.json` / `.env` / `credentials.json` 全都处于未忽略状态。改完用
-  `git check-ignore -v <文件>` 双向验证。
-
-## gcloud 在 WSL 里登录
-
-`gio` 打不开浏览器，而手工复制那条超长 OAuth URL 会被终端截断，表现为
-`Error 400: invalid_scope`（invalid 项是被截断的 scope，看着像 scope 配错了，
-其实是 URL 断了）。解法是让脚本把 URL 交给 Windows 浏览器：
+现无自动化测试目录。普通本地检查无需导入会初始化云客户端的应用：
 
 ```bash
-# BROWSER 指向一个 exec powershell.exe -Command "Start-Process \"$1\"" 的脚本
-BROWSER=/path/to/open-win-browser.sh gcloud auth login
+python -m py_compile main.py generate_gmail_token.py
+git diff --check
 ```
 
-## 提交
+纯文档改动检查路径、链接与命令。编译只证明语法，不证明云服务、watch、去重或下游业务可用；
+行为改动需针对受影响逻辑做隔离验证，无法验证时明确说明。
 
-走 PR（`gh pr create --repo huozao/gmail-watcher`）。合并即部署，见上。
-
-工作区级规矩见顶层 [`AGENTS.md`](../AGENTS.md)。
+业务行为、路由、配置、部署触发或验证方式改变时，同批更新受影响的现有契约与导航。
+新功能只补需要的文档，无影响不制造记录。历史取证标日期，待验证不写成线上事实。
