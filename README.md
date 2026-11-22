@@ -61,16 +61,16 @@ gcloud secrets versions add gmail_token_json --project=pushgamiltogithub --data-
 | dispatch 返回 404 | `GITHUB_REPO` 与实际仓库不符（改名/转移后没同步），或 token 权限不足 |
 | 重复处理同一封 | Firestore 里的 `historyId` 状态异常 |
 
-## 生产部署（2026-09-08 用 gcloud 实测定位）
+## 生产部署（2026-11-22 用 gcloud 实测定位）
 
 | 项 | 值 |
 |---|---|
 | GCP 项目 | `pushgamiltogithub` |
 | Cloud Run 服务 | `googlecloudgmails`，区域 **asia-east2** |
 | 服务 URL | `https://googlecloudgmails-248281792263.asia-east2.run.app` |
-| 当前 revision | `googlecloudgmails-00074-5rg`（2026-04-19 部署） |
-| 镜像 | `asia-east2-docker.pkg.dev/pushgamiltogithub/cloud-run-source-deploy/googlecloudgmail/googlecloudgmails:<commit sha>` |
-| Pub/Sub | topic `gmailtocloud` → 推送订阅 `gmailtocloud-sub` → 上面那个服务 URL |
+| 当前 revision | `googlecloudgmails-00081-zxx`（2026-11-22 部署） |
+| 镜像 | `asia-east2-docker.pkg.dev/pushgamiltogithub/cloud-run-source-deploy/googlecloudgmail/googlecloudgmails:<commit sha>`（已配自动清理策略：清理 >7d 未标记旧镜像，保留最新 5 个版本） |
+| Pub/Sub | topic `gmailtocloud` → 推送订阅 `gmailtocloud-sub`（ackDeadline: 30s） → 上面那个服务 URL |
 | Secret Manager | `gmail_token_json`、`gmail_credentials`、`gmail-service-account` |
 | watch 续期 | Cloud Scheduler `refresh-gmail-watch` @ asia-east2，`0 18 * * *`（UTC，即北京 02:00），ENABLED |
 
