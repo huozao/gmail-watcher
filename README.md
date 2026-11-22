@@ -60,6 +60,11 @@ gcloud secrets versions add gmail_token_json --project=pushgamiltogithub --data-
 | 一直没有任何推送 | Gmail watch 是否过期（≤7 天），调 `/refresh_watch` |
 | dispatch 返回 404 | `GITHUB_REPO` 与实际仓库不符（改名/转移后没同步），或 token 权限不足 |
 | 重复处理同一封 | Firestore 里的 `historyId` 状态异常 |
+| 处理耗时畸高（>20s）或任务丢单 | 检查是否使用了后台线程返回 200；Cloud Run 在 `cpu-throttling` 下会在主请求返回后冻结 CPU，必须在请求内同步完成全部逻辑 |
+
+## 待演进方案（已审议）
+
+- [海尔验证码自动流转与跨网络传递方案](docs/design-haier-otp-delivery.md)：针对海尔登录邮件验证码（`iam@haier.com`）流转至内网 `webdock2` 自动化程序的架构设计。已审议选型**方案 1（Cloud Run 自闭环 + Firestore 暂存 + 飞书通知 + 轮询 API）**，后续接手可直接参考该文档实施开发。
 
 ## 生产部署（2026-11-22 用 gcloud 实测定位）
 
