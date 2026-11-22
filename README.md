@@ -115,3 +115,17 @@ gcloud builds triggers list
 ## 本地运行
 
 见 [`RUN_LOCAL_DOCKER.md`](RUN_LOCAL_DOCKER.md)。
+
+## 独立邮件中枢通知入口
+
+`mail_hub_notify.py` 是邮件中枢的独立 Cloud Run 入口。构建使用
+`Dockerfile.mail-hub-notify`，现有 `Dockerfile` 仍服务美的对账链路。
+启用时使用同一 Gmail Topic 的独立 Push 订阅，并给推送服务账号单独授予新服务的 Cloud Run Invoker。
+
+部署设置 `MAIL_HUB_NOTIFY_URL` 为 txecs 的 HTTPS 通知 API，并通过 Secret Manager
+注入 `MAIL_HUB_NOTIFY_TOKEN`。转发格式为
+`{"version":1,"email_address":"demo@example.invalid","history_id":"123"}`。
+txecs 返回 2xx 后确认 Pub/Sub 通知。网络错误和 txecs 拒绝返回 503，交由 Pub/Sub 重试。
+事件格式不合法时只记录固定告警并确认，避免无效载荷反复重投。
+
+离线验证运行 `python -B -m unittest discover -s tests -v`。
