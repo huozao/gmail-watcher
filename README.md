@@ -8,10 +8,10 @@ Gmail 邮件监听与流水线触发器。部署在 Google Cloud Run，是「美
 Gmail 收到邮件
   → Gmail watch 推送到 Pub/Sub topic (gmailtocloud)
   → Pub/Sub 推送订阅 POST 到本服务 /
-  → 立即返回 200，后台线程处理（避免 Pub/Sub 重投）
-  → 比对 historyId（存 Firestore，防重复处理）
-  → 拉取新邮件，按 KEYWORDS 匹配
+  → 比对 historyId（存 Firestore，复用读取结果防重复处理）
+  → 同步拉取新邮件，按 KEYWORDS 匹配
   → 命中则打标签 + POST GitHub workflow_dispatch
+  → 全部处理完成后返回 200 OK（确保 Cloud Run 请求期间获得充足 CPU，杜绝后台线程被 cpu-throttling 冻结）
   → meidi-auto 的 run-daily.yml 开跑
 ```
 
@@ -27,7 +27,8 @@ Gmail 收到邮件
 
 ## 路由
 
-- `POST /` — Pub/Sub 推送入口
+- `POST /` — Pub/Sub 推送入口（同步处理并返回 200）
+- `GET /health` — 容器健康检查
 - `GET /refresh_watch` — 续期 Gmail watch。**Gmail watch 最长 7 天到期**，必须周期性调用，否则邮件不再推送、链路静默失效
 
 ## Token

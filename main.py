@@ -78,18 +78,23 @@ def load_gmail_service():
 
     return build('gmail', 'v1', credentials=creds, cache_discovery=False)
 
+@app.route('/health', methods=['GET'])
+def health():
+    return 'OK', 200
+
 @app.route('/', methods=['POST'])
 def receive_pubsub():
     start_time = time.time()
     envelope = request.get_json()
-    logging.info("\U0001f4e8 收到 Pub/Sub 消息：%s", envelope)
+    logging.info("📨 收到 Pub/Sub 消息：%s", envelope)
 
-    t = threading.Thread(target=process_pubsub_message, args=(envelope,))
-    t.daemon = True
-    t.start()
+    try:
+        process_pubsub_message(envelope)
+    except Exception as e:
+        logging.exception(f"❌ 处理 Pub/Sub 消息异常：{e}")
 
     elapsed_ms = round((time.time() - start_time) * 1000)
-    logging.info(f"\U0001f4e4 已立即返回 200 OK（耗时 {elapsed_ms}ms）")
+    logging.info(f"📤 处理完成并返回 200 OK（总耗时 {elapsed_ms}ms）")
     return 'OK', 200
 
 def process_pubsub_message(envelope):
@@ -115,9 +120,9 @@ def process_pubsub_message(envelope):
             logging.warning(f"⚠️ 收到的 historyId（{history_id}）不大于已保存的（{last_history_id}），跳过本轮处理")
             return
 
-        logging.info(f"📌 异步处理中 historyId: {history_id}，线程ID: {threading.get_ident()}")
+        logging.info(f"📌 同步处理中 historyId: {history_id}（上次已记录: {last_history_id}）")
 
-        new_messages = detect_new_messages_only(history_id)
+        new_messages = detect_new_messages_only(history_id, last_history_id=last_history_id)
 
         for keyword in KEYWORDS:
             matched = find_messages_with_keyword(new_messages, keyword=keyword)
@@ -131,7 +136,7 @@ def process_pubsub_message(envelope):
                         send_github_trigger_email(github_response)
                         time.sleep(2)  # 防止连续发信被拒绝
         elapsed = round(time.time() - start_time, 2)
-        logging.info(f"✅ 异步处理完成（耗时 {elapsed}s）")
+        logging.info(f"✅ 处理完成（耗时 {elapsed}s）")
 
     except Exception as e:
         logging.exception(f"❌ 异步处理异常：{e}")
@@ -230,14 +235,13 @@ def save_history_id_to_firestore(history_id: str):
 
 
 
-def detect_new_messages_only(current_history_id: str):
+def detect_new_messages_only(current_history_id: str, last_history_id: str = None):
     """仅分析 Gmail 的新增未读邮件变动，返回 [(msg_id, subject)] 列表"""
     try:
         logging.info("🔍 正在获取 Gmail 变动记录（仅筛选新增未读邮件）")
 
-        # === 读取上一次 historyId ===
-        # 替换后（改用 Firestore）
-        start_id = read_history_id_from_firestore()
+        # === 读取上一次 historyId（优先复用传入值，避免重复读取 Firestore） ===
+        start_id = last_history_id if last_history_id is not None else read_history_id_from_firestore()
 
         # === 构建 Gmail 客户端 ===
         service = load_gmail_service()
