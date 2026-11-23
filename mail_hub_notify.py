@@ -20,6 +20,8 @@ def notify():
         payload = json.loads(base64.b64decode(encoded, altchars=b"-_", validate=True))
         address = payload["emailAddress"]
         hint = payload["historyId"]
+        if type(hint) is int:
+            hint = str(hint)
         if not isinstance(address, str) or "@" not in address:
             raise ValueError("invalid emailAddress")
         if not isinstance(hint, str) or not hint.isascii() or not hint.isdecimal() or len(hint) > 30:

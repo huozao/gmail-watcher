@@ -125,6 +125,7 @@ gcloud builds triggers list
 部署设置 `MAIL_HUB_NOTIFY_URL` 为 txecs 的 HTTPS 通知 API，并通过 Secret Manager
 注入 `MAIL_HUB_NOTIFY_TOKEN`。转发格式为
 `{"version":1,"email_address":"demo@example.invalid","history_id":"123"}`。
+Gmail 的 `historyId` 在真实推送中可能是 JSON 数字，转发器兼容数字和字符串，统一以十进制字符串交付。
 txecs 返回 2xx 后确认 Pub/Sub 通知。网络错误和 txecs 拒绝返回 503，交由 Pub/Sub 重试。
 事件格式不合法时只记录固定告警并确认，避免无效载荷反复重投。
 

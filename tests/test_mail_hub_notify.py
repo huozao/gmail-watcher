@@ -24,3 +24,15 @@ class RelayTest(unittest.TestCase):
             })
             self.assertEqual(client.post("/", json={"message": {"data": "invalid"}}).status_code, 204)
             self.assertEqual(send.call_count, 2)
+
+    def test_numeric_history_id_matches_real_gmail_push(self):
+        event = base64.urlsafe_b64encode(json.dumps({
+            "emailAddress": "test@example.invalid", "historyId": 123
+        }).encode()).decode()
+        env = {"MAIL_HUB_NOTIFY_URL": "https://example.invalid/v1/notifications",
+               "MAIL_HUB_NOTIFY_TOKEN": "test"}
+        with patch.dict("os.environ", env), patch("mail_hub_notify.requests.post") as send:
+            send.return_value.status_code = 204
+            response = app.test_client().post("/", json={"message": {"data": event}})
+            self.assertEqual(response.status_code, 204)
+            self.assertEqual(send.call_args.kwargs["json"]["history_id"], "123")
