@@ -77,7 +77,7 @@ gcloud secrets versions add gmail_token_json --project=pushgamiltogithub --data-
 | 镜像 | `asia-east2-docker.pkg.dev/pushgamiltogithub/cloud-run-source-deploy/googlecloudgmail/googlecloudgmails:<commit sha>`（已配自动清理策略：清理 >7d 未标记旧镜像，保留最新 5 个版本） |
 | Pub/Sub | topic `gmailtocloud` → 推送订阅 `gmailtocloud-sub`（ackDeadline: 30s） → 上面那个服务 URL |
 | Secret Manager | `gmail_token_json`、`gmail_credentials`、`gmail-service-account` |
-| watch 续期 | Cloud Scheduler `refresh-gmail-watch` @ asia-east2，`0 18 * * *`（UTC，即北京 02:00），ENABLED |
+| watch 续期 | Cloud Scheduler `refresh-gmail-watch` @ asia-east2，`0 18 * * *`（Asia/Shanghai，即北京时间 18:00），ENABLED |
 
 ### 部署方式：Cloud Build 触发器，**push main 即自动构建并部署**
 
@@ -117,6 +117,8 @@ gcloud builds triggers list
 见 [`RUN_LOCAL_DOCKER.md`](RUN_LOCAL_DOCKER.md)。
 
 ## 独立邮件中枢通知入口
+
+现行部署版本与跨仓交接见 [邮件中枢交接](https://github.com/huozao/mail-hub/blob/main/docs/handoff.md)。
 
 `mail_hub_notify.py` 是邮件中枢的独立 Cloud Run 入口。构建使用
 `Dockerfile.mail-hub-notify`，现有 `Dockerfile` 仍服务美的对账链路。

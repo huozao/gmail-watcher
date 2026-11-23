@@ -10,7 +10,7 @@ Gmail 监听与下游 GitHub Actions 触发器，使用 Flask、Pub/Sub 与 Fire
 - `mail_hub_notify.py`：独立 Cloud Run 邮件中枢通知入口，使用独立 Push 订阅。
 - `generate_gmail_token.py`：人工 OAuth 凭据生成；`Dockerfile`：运行镜像。
 - [RUN_LOCAL_DOCKER.md](RUN_LOCAL_DOCKER.md)：有账户副作用的本地启动说明，不能当作默认测试。
-- [docs/design-haier-otp-delivery.md](docs/design-haier-otp-delivery.md)：已审议的设计方案（海尔登录验证码流转与 Webdock2 消费接口，推荐方案 1：Cloud Run 自闭环 + Firestore 暂存）。
+- [docs/design-haier-otp-delivery.md](docs/design-haier-otp-delivery.md)：早期候选方案。现行设计见 [邮件中枢交接](https://github.com/huozao/mail-hub/blob/main/docs/handoff.md)。
 
 ## 业务与授权边界
 
