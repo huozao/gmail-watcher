@@ -7,6 +7,7 @@ Gmail 监听与下游 GitHub Actions 触发器，使用 Flask、Pub/Sub 与 Fire
 
 - [README.md](README.md)：链路、配置、排障与带日期的部署取证。历史 revision、触发器与账户配置需现场复核。
 - `main.py`：Pub/Sub 入口（同步处理）、historyId 去重、关键词匹配、Gmail 标签、workflow dispatch、watch 续期与健康检查。
+- `mail_hub_notify.py`：独立 Cloud Run 邮件中枢通知入口，使用独立 Push 订阅。
 - `generate_gmail_token.py`：人工 OAuth 凭据生成；`Dockerfile`：运行镜像。
 - [RUN_LOCAL_DOCKER.md](RUN_LOCAL_DOCKER.md)：有账户副作用的本地启动说明，不能当作默认测试。
 - [docs/design-haier-otp-delivery.md](docs/design-haier-otp-delivery.md)：已审议的设计方案（海尔登录验证码流转与 Webdock2 消费接口，推荐方案 1：Cloud Run 自闭环 + Firestore 暂存）。
@@ -29,7 +30,7 @@ Gmail 监听与下游 GitHub Actions 触发器，使用 Flask、Pub/Sub 与 Fire
 
 ## 最小验证与维护
 
-现无自动化测试目录。普通本地检查无需导入会初始化云客户端的应用：
+邮件中枢通知入口的离线测试运行 `python -B -m unittest discover -s tests -v`。原有应用的普通本地检查无需导入会初始化云客户端的应用：
 
 ```bash
 python -m py_compile main.py generate_gmail_token.py
